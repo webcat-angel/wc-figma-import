@@ -1,0 +1,169 @@
+<div>
+  <div class="wrapper" id="no-selection" style="display: none">
+    <div class="caption">Select a frame with auto-layout enabled to copy it to Webcat</div>
+    <button id="copy-disabled" disabled>Copy frame</button>
+    <div class="caption-bottom">Learn more <a href="https://webcat.app" target="_blank">here</a></div>
+  </div>
+  <div class="wrapper" id="multiple-selection" style="display: none">
+    <div class="caption">You can't copy multiple nodes simultaneously</div>
+    <button id="copy-disabled" disabled>Copy frame</button>
+    <div class="caption-bottom">Learn more <a href="https://webcat.app" target="_blank">here</a></div>
+  </div>
+  <div class="wrapper" id="no-frame" style="display: none">
+    <div class="caption">You must select a frame with elements inside</div>
+    <button id="copy-disabled" disabled>Copy frame</button>
+    <div class="caption-bottom">Learn more <a href="https://webcat.app" target="_blank">here</a></div>
+  </div>
+  <div class="wrapper" id="selection" style="display: none">
+    <div class="caption">Copy the frame and paste it in Webcat using <b>CTRL+V</b></div>
+    <button id="copy">Copy</button>
+    <div class="caption-bottom">Learn more <a href="https://webcat.app" target="_blank">here</a></div>
+  </div>
+  <div class="wrapper" id="component-selection" style="display: none">
+    <div class="caption">You can't copy frames with component instances</div>
+    <button id="detach">Detach instances</button>
+    <div class="caption-bottom">Learn more <a href="https://webcat.app" target="_blank">here</a></div>
+  </div>
+</div>
+<style>
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  position: fixed;
+  inset: 0;
+}
+.caption {
+  font-family: Poppins, Verdana, Helvetica;
+  font-size: 12px;
+  color: #333;
+  text-align: center;
+  margin-bottom: 0.5rem;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+}
+.caption-bottom {
+  font-family: Poppins, Verdana, Helvetica;
+  font-size: 11px;
+  color: #999;
+  text-align: center;
+  margin-top: 0.25rem;
+}
+a {
+  color: #5116B2;
+}
+#copy, #detach {
+  width: 100%;
+  background: #5116B2;
+  color: #fff;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-family: Poppins, Verdana, Helvetica;
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#detach {
+  background: #2289CA;
+}
+#copy:disabled, #detach:disabled {
+  background: #ccc;
+  cursor: default;
+}
+#copy-disabled {
+  width: 100%;
+  background: #ccc;
+  color: #fff;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-family: Poppins, Verdana, Helvetica;
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+}
+</style>
+<script>
+let copyData = ''
+let nodeName = ''
+
+onmessage = async event => {
+  if (event.data.pluginMessage.type === 'no-selection') {
+    hideAll()
+    setDiplay('no-selection', 'flex')
+  } else if (event.data.pluginMessage.type === 'multiple-selection') {
+    hideAll()
+    setDiplay('multiple-selection', 'flex')
+  } else if (event.data.pluginMessage.type === 'not-frame') {
+    hideAll()
+    setDiplay('no-frame', 'flex')
+  } else if (event.data.pluginMessage.type === 'component-selection') {
+    hideAll()
+    document.getElementById('detach').innerText = `Detach ${event.data.pluginMessage.amount} instances`
+    document.getElementById('detach').disabled = false
+    setDiplay('component-selection', 'flex')
+  } else if (event.data.pluginMessage.type === 'selection') {
+    nodeName = event.data.pluginMessage.name
+    const componentAmount = event.data.pluginMessage.componentAmount
+    document.getElementById('copy').innerText = `Copy ${nodeName}`
+    document.getElementById('copy').disabled = false
+    hideAll()
+    setDiplay('selection', 'flex')
+  } else if (event.data.pluginMessage.type === 'copy') {
+    copyData = event.data.pluginMessage.data
+    await writeTextToClipboard(copyData)
+    // Set button text to Copied! and then back to previous text
+    const prevText = `Copy ${nodeName}`
+    document.getElementById('copy').innerText = 'Copied!'
+    setTimeout(() => {
+      document.getElementById('copy').disabled = false
+      document.getElementById('copy').innerText = prevText
+    }, 2000)
+  }
+}
+document.getElementById('copy').onclick = async () => {
+  document.getElementById('copy').disabled = true
+  document.getElementById('copy').innerText = 'Copying...'
+  setTimeout(() => parent.postMessage({ pluginMessage: { type: 'copy' } }, '*'), 100)
+} 
+document.getElementById('detach').onclick = async () => {
+  document.getElementById('detach').disabled = true
+  document.getElementById('detach').innerText = 'Detaching...'
+  setTimeout(() => parent.postMessage({ pluginMessage: { type: 'detach' } }, '*'), 100)
+}
+function hideAll () {
+  setDiplay('no-selection', 'none')
+  setDiplay('multiple-selection', 'none')
+  setDiplay('selection', 'none')
+  setDiplay('no-frame', 'none')
+  setDiplay('component-selection', 'none')
+}
+function setDiplay (id, display) {
+  document.getElementById(id).style.display = display
+}
+
+function writeTextToClipboard(str) {
+  const prevActive = document.activeElement
+  const textArea   = document.createElement('textarea')
+  textArea.value = str
+  textArea.style.position = 'fixed'
+  textArea.style.left     = '-999999px'
+  textArea.style.top      = '-999999px'
+  document.body.appendChild(textArea)
+  textArea.focus()
+  textArea.select()
+  return new Promise((res, rej) => {
+    document.execCommand('copy') ? res() : rej()
+    textArea.remove()
+    prevActive.focus()
+  })
+}
+
+</script>
